@@ -8,6 +8,6 @@ class ProductModel(models.Model):
     price = models.CharField(max_length=10)  
     is_available = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=datetime.now)
-    last_updated = models.DateTimeField(auto_now_add=False, null=True)
+    last_updated = models.DateTimeField(default=None, null=True)
     class Meta:
             db_table="tblproduct"

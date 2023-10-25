@@ -10,13 +10,19 @@ from django.db.utils import IntegrityError
 from datetime import datetime
 
 class PRODUCTMODELVIEW(APIView):
-    class ProductSerializer(serializers.ModelSerializer):
+    class InputSerializer(serializers.ModelSerializer):
+        class Meta:
+            model = ProductModel
+            exclude = ["created_at", "last_updated"]
+
+    class OutputSerializer(serializers.ModelSerializer):
         class Meta:
             model = ProductModel
             fields = "__all__"
 
     def post(self, request):
-        serializer = self.ProductSerializer(data= request.data)
+        # creating new product in with exception handling
+        serializer = self.InputSerializer(data= request.data)
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.data
         try:
@@ -25,10 +31,9 @@ class PRODUCTMODELVIEW(APIView):
                 brand = validated_data['brand'],
                 price = validated_data['price'],
                 category = validated_data['category'],
+                description = validated_data['description']
             )
-            # checking optional fields for data if provided by user, also save them
-            if 'description' in validated_data:
-                new_product.description = validated_data['description']
+            # checking optional fields
             if 'is_available' in validated_data:
                 new_product.is_available = validated_data['is_available']
 
@@ -42,18 +47,20 @@ class PRODUCTMODELVIEW(APIView):
     def get(self, request, pk=None):
         if pk is not None:
             try:
+                # fetching particular product
                 product = ProductModel.objects.get(id=pk)
-                serializer = self.ProductSerializer(product).data
+                serializer = self.OutputSerializer(product).data
                 return Response(serializer)
             except ProductModel.DoesNotExist:
                 return Response({'message': 'Product not found'}, status=status.HTTP_404_NOT_FOUND)
             except Exception as e:
-                return Response({'message': e}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'message': str(e)}, status=status.HTTP_404_NOT_FOUND)
         else:
             try:
+                # fetching all products from db
                 all_products = ProductModel.objects.all()
                 if all_products:
-                    serializer = self.ProductSerializer(all_products, many=True).data
+                    serializer = self.OutputSerializer(all_products, many=True).data
                     return Response(serializer)
                 else:
                     return Response({'message': 'Data not found'}, status=status.HTTP_400_BAD_REQUEST)
@@ -63,6 +70,7 @@ class PRODUCTMODELVIEW(APIView):
 
     def put(self, request, pk):
         try:
+            # checking if product exist, then update it
             existing_product = ProductModel.objects.get(id=pk)
         except ProductModel.DoesNotExist:
             return Response({'message': 'Product with id {} not found'.format(pk)}, status=status.HTTP_404_NOT_FOUND)
@@ -72,7 +80,7 @@ class PRODUCTMODELVIEW(APIView):
         if not request.data:
             return Response({'message': 'No fields were modified'}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = self.ProductSerializer(existing_product, data=request.data, partial=True)
+        serializer = self.InputSerializer(existing_product, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         existing_product.last_updated = datetime.now()
@@ -82,6 +90,7 @@ class PRODUCTMODELVIEW(APIView):
 
     def delete(self, request, pk):
         try:
+            # deleting particular product
             del_product = ProductModel.objects.get(id=pk)
         except ProductModel.DoesNotExist:
             return Response({'message': 'Product with id {} not found'.format(pk)}, status=status.HTTP_404_NOT_FOUND)
